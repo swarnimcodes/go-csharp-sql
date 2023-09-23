@@ -17,6 +17,7 @@ import (
 )
 
 const CSharpExtension = ".cs"
+const cs_dir = "/home/swarnim/Downloads/backup/py-csharp-sql/cs"
 
 // TODO: Add config file option
 
@@ -121,7 +122,7 @@ func openFileMan(directory string) {
 	case "darwin":
 		cmd = "open"
 	default:
-		cmd = "xdg-open"
+		cmd = "nautilus"
 	}
 
 	exec.Command(cmd, directory).Start()
@@ -219,8 +220,6 @@ func writeToExcel(filelist []string) error {
 }
 
 func main() {
-	cs_dir := "/home/swarnim/Downloads/backup/py-csharp-sql/cs"
-
 	filelist, err := returnRecursiveFilelist(cs_dir)
 
 	if err != nil {
