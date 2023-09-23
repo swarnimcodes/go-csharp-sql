@@ -103,8 +103,6 @@ func writeToExcel(filelist []string) error {
 	xl.SetCellValue("Sheet1", "A1", "File Path")
 	xl.SetCellValue("Sheet1", "B1", "SP Line No.")
 	xl.SetCellValue("Sheet1", "C1", "SP Name")
-
-	//not implemented
 	xl.SetCellValue("Sheet1", "D1", "Table Query Line No.")
 	xl.SetCellValue("Sheet1", "E1", "Table")
 
@@ -155,8 +153,6 @@ func writeToExcel(filelist []string) error {
 				}
 
 				if sp_or_table == "Table" {
-					// TODO: return extracted table names
-					// returnTableNames
 					tableNames := returnTableNames(scanner.Text())
 					xl.SetCellValue("Sheet1", fmt.Sprintf("A%d", row), file)
 					xl.SetCellValue("Sheet1", fmt.Sprintf("B%d", row), "")
