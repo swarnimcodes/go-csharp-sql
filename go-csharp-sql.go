@@ -68,15 +68,20 @@ func returnSPName(file_line string) (string, error) {
 	}
 }
 
-func returnTableNames(tablequery string) string {
+func returnTableNames(tablequery string) []string {
 
 	pattern := `\btbl\w+`
 	re := regexp.MustCompile(pattern)
 	matches := re.FindAllString(tablequery, -1)
 
-	tableNames := strings.Join(matches, "\n")
-
-	return tableNames
+	var filteredMatches []string
+	for _, match := range matches {
+		match = strings.TrimSpace(match)
+		if match != "" {
+			filteredMatches = append(filteredMatches, match)
+		}
+	}
+	return filteredMatches
 }
 
 func returnRecursiveFilelist(path string) ([]string, error) {
@@ -101,10 +106,12 @@ func writeToExcel(filelist []string) error {
 
 	// Headers
 	xl.SetCellValue("Sheet1", "A1", "File Path")
-	xl.SetCellValue("Sheet1", "B1", "SP Line No.")
-	xl.SetCellValue("Sheet1", "C1", "SP Name")
-	xl.SetCellValue("Sheet1", "D1", "Table Query Line No.")
-	xl.SetCellValue("Sheet1", "E1", "Table")
+	xl.SetCellValue("Sheet1", "B1", "SP Count")
+	xl.SetCellValue("Sheet1", "C1", "SP Line No.")
+	xl.SetCellValue("Sheet1", "D1", "SP List")
+	xl.SetCellValue("Sheet1", "E1", "Table Count")
+	xl.SetCellValue("Sheet1", "F1", "Table List")
+	xl.SetCellValue("Sheet1", "G1", "Query Line No.")
 
 	row := 2
 
@@ -122,6 +129,10 @@ func writeToExcel(filelist []string) error {
 			scanner := bufio.NewScanner(file_content)
 
 			ln := 1
+			var spLn []string
+			var tblLn []string
+
+			var spList, tableList []string
 
 			for scanner.Scan() {
 				line := scanner.Text()
@@ -130,8 +141,6 @@ func writeToExcel(filelist []string) error {
 					ln++
 					continue
 				}
-
-				// TODO: delegate checking to outside func
 
 				sp_or_table, err := isSPOrTable(scanner.Text())
 				if err != nil {
@@ -146,24 +155,27 @@ func writeToExcel(filelist []string) error {
 						log.Fatalf("Error returning SP Name: %s", err)
 						continue
 					}
-					xl.SetCellValue("Sheet1", fmt.Sprintf("A%d", row), file)
-					xl.SetCellValue("Sheet1", fmt.Sprintf("B%d", row), ln)
-					xl.SetCellValue("Sheet1", fmt.Sprintf("C%d", row), sp_name)
-					row++
+					spList = append(spList, sp_name)
+					spLn = append(spLn, fmt.Sprintf("%d", ln))
 				}
 
 				if sp_or_table == "Table" {
 					tableNames := returnTableNames(scanner.Text())
-					xl.SetCellValue("Sheet1", fmt.Sprintf("A%d", row), file)
-					xl.SetCellValue("Sheet1", fmt.Sprintf("B%d", row), "")
-					xl.SetCellValue("Sheet1", fmt.Sprintf("C%d", row), "")
-					xl.SetCellValue("Sheet1", fmt.Sprintf("D%d", row), ln)
-					xl.SetCellValue("Sheet1", fmt.Sprintf("E%d", row), tableNames)
-					row++
+					tableList = append(tableList, tableNames...)
+					tblLn = append(tblLn, fmt.Sprintf("%d", ln))
 				}
-
 				ln++
 			}
+			// Set cell values for this file
+			xl.SetCellValue("Sheet1", fmt.Sprintf("A%d", row), file)
+			xl.SetCellValue("Sheet1", fmt.Sprintf("B%d", row), len(spList))
+			xl.SetCellValue("Sheet1", fmt.Sprintf("C%d", row), strings.Join(spLn, "\n")) //TODO: SP Line Number
+			xl.SetCellValue("Sheet1", fmt.Sprintf("D%d", row), strings.Join(spList, "\n"))
+			xl.SetCellValue("Sheet1", fmt.Sprintf("E%d", row), len(tableList))
+			xl.SetCellValue("Sheet1", fmt.Sprintf("F%d", row), strings.Join(tableList, "\n"))
+			xl.SetCellValue("Sheet1", fmt.Sprintf("G%d", row), strings.Join(tblLn, "\n")) //TODO: Table Line Numbers
+
+			row++
 		}
 	}
 
