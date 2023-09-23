@@ -6,15 +6,19 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/xuri/excelize/v2"
 )
 
 const CSharpExtension = ".cs"
+
+// TODO: Add config file option
 
 func spMethodList() []string {
 	return []string{
@@ -108,7 +112,23 @@ func returnRecursiveFilelist(path string) ([]string, error) {
 	return filelist, nil
 }
 
+func openFileMan(directory string) {
+	var cmd string
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = "explorer"
+	case "darwin":
+		cmd = "open"
+	default:
+		cmd = "xdg-open"
+	}
+
+	exec.Command(cmd, directory).Start()
+}
+
 func writeToExcel(filelist []string) error {
+	//TODO: Open folder where excel file was generated
 	xl := excelize.NewFile()
 
 	// Headers
@@ -199,8 +219,6 @@ func writeToExcel(filelist []string) error {
 }
 
 func main() {
-	fmt.Println("Hello, World!")
-
 	cs_dir := "/home/swarnim/Downloads/backup/py-csharp-sql/cs"
 
 	filelist, err := returnRecursiveFilelist(cs_dir)
@@ -211,5 +229,8 @@ func main() {
 
 	if err := writeToExcel(filelist); err != nil {
 		log.Printf("Error writing to Excel: %s", err)
+	} else {
+		log.Println("Excel file saved successfully!")
+		openFileMan(filepath.Dir("cs_output.xlsx"))
 	}
 }
