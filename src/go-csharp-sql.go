@@ -14,6 +14,8 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+const CSharpExtension = ".cs"
+
 func spMethodList() []string {
 	return []string{
 		"ExecuteNonQuery",
@@ -68,7 +70,7 @@ func returnSPName(file_line string) (string, error) {
 	}
 }
 
-func returnTableNames(tablequery string) []string {
+func returnTableNames(tablequery string) ([]string, error) {
 
 	pattern := `\btbl\w+`
 	re := regexp.MustCompile(pattern)
@@ -81,7 +83,12 @@ func returnTableNames(tablequery string) []string {
 			filteredMatches = append(filteredMatches, match)
 		}
 	}
-	return filteredMatches
+
+	if len(filteredMatches) == 0 {
+		return nil, fmt.Errorf("Surprisingly, no table names were found!")
+	}
+
+	return filteredMatches, nil
 }
 
 func returnRecursiveFilelist(path string) ([]string, error) {
@@ -116,11 +123,11 @@ func writeToExcel(filelist []string) error {
 	row := 2
 
 	for _, file := range filelist {
-		if path.Ext(file) == ".cs" {
+		if path.Ext(file) == CSharpExtension {
 			file_content, err := os.Open(file)
 
 			if err != nil {
-				log.Fatalf("Error reading file: %s", err)
+				log.Printf("Error reading file: %s", err)
 				continue
 			}
 
@@ -144,7 +151,7 @@ func writeToExcel(filelist []string) error {
 
 				sp_or_table, err := isSPOrTable(scanner.Text())
 				if err != nil {
-					// log.Fatalf("%s", err)
+					// log.Printf("%s", err)
 					ln++
 					continue
 				}
@@ -152,17 +159,22 @@ func writeToExcel(filelist []string) error {
 				if sp_or_table == "SP" {
 					sp_name, err := returnSPName(scanner.Text())
 					if err != nil {
-						log.Fatalf("Error returning SP Name: %s", err)
+						log.Printf("Error returning SP Name: %s", err)
 						continue
+					} else {
+						spList = append(spList, sp_name)
+						spLn = append(spLn, fmt.Sprintf("%d", ln))
 					}
-					spList = append(spList, sp_name)
-					spLn = append(spLn, fmt.Sprintf("%d", ln))
 				}
 
 				if sp_or_table == "Table" {
-					tableNames := returnTableNames(scanner.Text())
-					tableList = append(tableList, tableNames...)
-					tblLn = append(tblLn, fmt.Sprintf("%d", ln))
+					tableNames, err := returnTableNames(scanner.Text())
+					if err != nil {
+						log.Printf("Error while extracting table names: %s", err)
+					} else {
+						tableList = append(tableList, tableNames...)
+						tblLn = append(tblLn, fmt.Sprintf("%d", ln))
+					}
 				}
 				ln++
 			}
@@ -180,7 +192,7 @@ func writeToExcel(filelist []string) error {
 	}
 
 	if err := xl.SaveAs("cs_output.xlsx"); err != nil {
-		log.Fatalf("Error saving Excel File: %s", err)
+		log.Printf("Error saving Excel File: %s", err)
 		return err
 	}
 	return nil
@@ -194,10 +206,10 @@ func main() {
 	filelist, err := returnRecursiveFilelist(cs_dir)
 
 	if err != nil {
-		log.Fatalf("Error listing files: %s", err)
+		log.Printf("Error listing files: %s", err)
 	}
 
 	if err := writeToExcel(filelist); err != nil {
-		log.Fatalf("Error writing to Excel: %s", err)
+		log.Printf("Error writing to Excel: %s", err)
 	}
 }
