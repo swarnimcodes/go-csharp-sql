@@ -14,7 +14,43 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-func ret_sp_name(file_line string) (string, error) {
+func spMethodList() []string {
+	return []string{
+		"ExecuteNonQuery",
+		"ExecuteDataSet",
+		"ExecuteNonQueryAsync",
+		"ExecuteReader",
+		"ExecuteReaderAsync",
+		"ExecuteScalar",
+		"ExecuteScalarAsync",
+	}
+}
+
+func tableMethodsList() []string {
+	return []string{
+		"FillDropDownOnly",
+	}
+}
+
+func containsString(line string, list []string) bool {
+	for _, item := range list {
+		if strings.Contains(line, item) {
+			return true
+		}
+	}
+	return false
+}
+
+func isSPOrTable(line string) (string, error) {
+	if containsString(line, spMethodList()) {
+		return "SP", nil
+	} else if containsString(line, tableMethodsList()) {
+		return "Table", nil
+	}
+	return "", fmt.Errorf("No match found!")
+}
+
+func returnSPName(file_line string) (string, error) {
 	pattern := `"[^"]+"`
 	re, err := regexp.Compile(pattern)
 	if err != nil {
@@ -32,7 +68,18 @@ func ret_sp_name(file_line string) (string, error) {
 	}
 }
 
-func ret_rec_filelist(path string) ([]string, error) {
+func returnTableNames(tablequery string) string {
+
+	pattern := `\btbl\w+`
+	re := regexp.MustCompile(pattern)
+	matches := re.FindAllString(tablequery, -1)
+
+	tableNames := strings.Join(matches, "\n")
+
+	return tableNames
+}
+
+func returnRecursiveFilelist(path string) ([]string, error) {
 	var filelist []string
 	err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -41,18 +88,15 @@ func ret_rec_filelist(path string) ([]string, error) {
 		if !d.IsDir() {
 			filelist = append(filelist, path)
 		}
-
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
-
 	return filelist, nil
 }
 
-func write_excel_sp(filelist []string, sp_methods []string, table_methods []string) error {
+func writeToExcel(filelist []string) error {
 	xl := excelize.NewFile()
 
 	// Headers
@@ -74,6 +118,7 @@ func write_excel_sp(filelist []string, sp_methods []string, table_methods []stri
 				log.Fatalf("Error reading file: %s", err)
 				continue
 			}
+
 			defer file_content.Close()
 
 			scanner := bufio.NewScanner(file_content)
@@ -81,23 +126,47 @@ func write_excel_sp(filelist []string, sp_methods []string, table_methods []stri
 			ln := 1
 
 			for scanner.Scan() {
-				if !strings.HasPrefix(scanner.Text(), "//") {
-					for _, sp_method := range sp_methods {
-						if strings.Contains(scanner.Text(), sp_method) {
-							sp_name, err := ret_sp_name(scanner.Text())
-							if err != nil {
-								log.Fatalf("Error returning SP Name: %s", err)
-								continue
-							}
-
-							xl.SetCellValue("Sheet1", fmt.Sprintf("A%d", row), file)
-							xl.SetCellValue("Sheet1", fmt.Sprintf("B%d", row), ln)
-							xl.SetCellValue("Sheet1", fmt.Sprintf("C%d", row), sp_name)
-							row++
-						}
-					}
+				line := scanner.Text()
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "//") {
+					ln++
+					continue
 				}
-				ln = ln + 1
+
+				// TODO: delegate checking to outside func
+
+				sp_or_table, err := isSPOrTable(scanner.Text())
+				if err != nil {
+					// log.Fatalf("%s", err)
+					ln++
+					continue
+				}
+
+				if sp_or_table == "SP" {
+					sp_name, err := returnSPName(scanner.Text())
+					if err != nil {
+						log.Fatalf("Error returning SP Name: %s", err)
+						continue
+					}
+					xl.SetCellValue("Sheet1", fmt.Sprintf("A%d", row), file)
+					xl.SetCellValue("Sheet1", fmt.Sprintf("B%d", row), ln)
+					xl.SetCellValue("Sheet1", fmt.Sprintf("C%d", row), sp_name)
+					row++
+				}
+
+				if sp_or_table == "Table" {
+					// TODO: return extracted table names
+					// returnTableNames
+					tableNames := returnTableNames(scanner.Text())
+					xl.SetCellValue("Sheet1", fmt.Sprintf("A%d", row), file)
+					xl.SetCellValue("Sheet1", fmt.Sprintf("B%d", row), "")
+					xl.SetCellValue("Sheet1", fmt.Sprintf("C%d", row), "")
+					xl.SetCellValue("Sheet1", fmt.Sprintf("D%d", row), ln)
+					xl.SetCellValue("Sheet1", fmt.Sprintf("E%d", row), tableNames)
+					row++
+				}
+
+				ln++
 			}
 		}
 	}
@@ -110,19 +179,17 @@ func write_excel_sp(filelist []string, sp_methods []string, table_methods []stri
 }
 
 func main() {
-	sp_methods := []string{"ExecuteNonQuerySP", "ExecuteDataSetSP"}
-	table_methods := []string{"FillDropDownOnly"}
 	fmt.Println("Hello, World!")
 
 	cs_dir := "/home/swarnim/Downloads/backup/py-csharp-sql/cs"
 
-	filelist, err := ret_rec_filelist(cs_dir)
+	filelist, err := returnRecursiveFilelist(cs_dir)
 
 	if err != nil {
 		log.Fatalf("Error listing files: %s", err)
 	}
 
-	if err := write_excel_sp(filelist, sp_methods, table_methods); err != nil {
+	if err := writeToExcel(filelist); err != nil {
 		log.Fatalf("Error writing to Excel: %s", err)
 	}
 }
