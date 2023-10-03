@@ -130,6 +130,7 @@ func openFileMan(directory string) {
 
 func writeToExcel(filelist []string) error {
 	//TODO: Open folder where excel file was generated
+	//DONE: Implemented for all 3 major Operating Systems
 	xl := excelize.NewFile()
 
 	// Headers
