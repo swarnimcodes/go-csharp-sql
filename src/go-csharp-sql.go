@@ -202,12 +202,13 @@ func writeToExcel(filelist []string) error {
 			}
 			// Set cell values for this file
 			xl.SetCellValue("Sheet1", fmt.Sprintf("A%d", row), file)
+
 			xl.SetCellValue("Sheet1", fmt.Sprintf("B%d", row), len(spList))
-			xl.SetCellValue("Sheet1", fmt.Sprintf("C%d", row), strings.Join(spLn, "\n")) //TODO: SP Line Number
+			xl.SetCellValue("Sheet1", fmt.Sprintf("C%d", row), strings.Join(spLn, "\n"))
 			xl.SetCellValue("Sheet1", fmt.Sprintf("D%d", row), strings.Join(spList, "\n"))
 			xl.SetCellValue("Sheet1", fmt.Sprintf("E%d", row), len(tableList))
 			xl.SetCellValue("Sheet1", fmt.Sprintf("F%d", row), strings.Join(tableList, "\n"))
-			xl.SetCellValue("Sheet1", fmt.Sprintf("G%d", row), strings.Join(tblLn, "\n")) //TODO: Table Line Numbers
+			xl.SetCellValue("Sheet1", fmt.Sprintf("G%d", row), strings.Join(tblLn, "\n"))
 
 			row++
 		}
